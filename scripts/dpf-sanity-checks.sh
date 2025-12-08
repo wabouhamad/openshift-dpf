@@ -30,24 +30,6 @@ if [ -z "${CLUSTER_NAME}" ]; then
     exit 1
 fi
 
-## 11-25-25
-## Need to add default values for the 3 required variables from .env file in case they are not defined
-
-if [ -z "${SANITY_TESTS_PODS_WORKLOAD_FILE}" ]; then
-  SANITY_TESTS_PODS_WORKLOAD_FILE="manifests/post-installation-manual/workload.yaml"
-  echo "SANITY_TESTS_PODS_WORKLOAD_FILE env var is not set, after sourcing env.sh file, using default value '${SANITY_TESTS_PODS_WORKLOAD_FILE}' ..."
-fi
-
-if [ -z "${SANITY_TESTS_WORKLOAD_NAMESPACE}" ]; then
-  SANITY_TESTS_WORKLOAD_NAMESPACE="workload"
-  echo "SANITY_TESTS_WORKLOAD_NAMESPACE env var is not set, after sourcing env.sh file, using default value '${SANITY_TESTS_WORKLOAD_NAMESPACE}' ..."
-fi
-
-if [ -z "${SANITY_TESTS_PING_COUNT}" ]; then
-  SANITY_TESTS_PING_COUNT="20"
-  echo "SANITY_TESTS_PING_COUNT env var is not set, after sourcing env.sh file, using default value '${SANITY_TESTS_PING_COUNT}' ...."
-fi
-
 
 echo -e "\nVariables from sourced .env file or default values used in the script:"
 echo -e "- KUBECONFIG: '${KUBECONFIG}'"
@@ -56,6 +38,7 @@ echo -e "- CLUSTER_NAME: '${CLUSTER_NAME}'"
 echo -e "- SANITY_TESTS_PODS_WORKLOAD_FILE: '${SANITY_TESTS_PODS_WORKLOAD_FILE}'"
 echo -e "- SANITY_TESTS_WORKLOAD_NAMESPACE: '${SANITY_TESTS_WORKLOAD_NAMESPACE}'"
 echo -e "- SANITY_TESTS_PING_COUNT: '${SANITY_TESTS_PING_COUNT}'"
+echo -e "- SANITY_TESTS_PING_HBN_TO_HBN_PODS: '${SANITY_TESTS_PING_HBN_TO_HBN_PODS}'"
 
 mgmt_kubecfg="${KUBECONFIG}"
 echo -e "\n- mgmt_kubecfg: '${mgmt_kubecfg}'"
@@ -511,30 +494,41 @@ for i in "${!dpu_workers[@]}"; do
 
 done
 
-echo -e "\nChecking if DPU worker count is 2.  Number of DPU workers in this test suite: ${dpu_worker_count}"
+echo -e "\nChecking if SANITY_TESTS_PING_HBN_TO_HBN_PODS flag is set to 'true' before attempting to run the ping tests between the doca-hbn pods"
 
-if [ "${dpu_worker_count}" -eq 2 ]; then
+# Ping between doca-hbn pods is now optional
+if [ "${SANITY_TESTS_PING_HBN_TO_HBN_PODS}" == "true" ]; then
+  echo -e "Flag 'SANITY_TESTS_PING_HBN_TO_HBN_PODS' is set to 'true'"
 
-  echo -e "DPU worker count is 2.  Running ping tests between the two doca hbn pods on two 2 DPU workers nodes"
+  echo -e "Checking if DPU worker count is 2.  Number of DPU workers in this test suite: ${dpu_worker_count}"
 
-  # Test pings mtu 1490 from doca-hbn pod on worker node 1 to doca-hbn pod on worker node 2:
-  testcase_title="Test pings mtu 1490 from doca-hbn pod '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}' to '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}'"
-  ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[0]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 1490 "${doca_hbn_worker_pod_ip[1]}" "doca-hbn"
+  if [ "${dpu_worker_count}" -eq 2 ]; then
 
-  # Test pings mtu 8970 from doca-hbn pod on worker node 1 to doca-hbn pod on worker node 2:
-  testcase_title="Test pings mtu 8970 from doca-hbn pod '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}' to '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}'"
-  ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[0]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 8970 "${doca_hbn_worker_pod_ip[1]}" "doca-hbn"
+    echo -e "DPU worker count is 2.  Running ping tests between the two doca hbn pods on two 2 DPU workers nodes"
 
-  # Test pings mtu 1490 from doca-hbn pod on worker node 2 to doca-hbn pod on worker node 1:
-  testcase_title="Test pings mtu 1490 from doca-hbn pod '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}' to '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}'"
-  ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[1]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 1490 "${doca_hbn_worker_pod_ip[0]}" "doca-hbn"
+    # Test pings mtu 1490 from doca-hbn pod on worker node 1 to doca-hbn pod on worker node 2:
+    testcase_title="Test pings mtu 1490 from doca-hbn pod '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}' to '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}'"
+    ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[0]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 1490 "${doca_hbn_worker_pod_ip[1]}" "doca-hbn"
 
-  # Test pings mtu 8970 from doca-hbn pod on worker node 2 to doca-hbn pod on worker node 1:
-  testcase_title="Test pings mtu 8970 from doca-hbn pod '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}' to '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}'"
-  ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[1]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 8970 "${doca_hbn_worker_pod_ip[0]}" "doca-hbn"
+    # Test pings mtu 8970 from doca-hbn pod on worker node 1 to doca-hbn pod on worker node 2:
+    testcase_title="Test pings mtu 8970 from doca-hbn pod '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}' to '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}'"
+    ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[0]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 8970 "${doca_hbn_worker_pod_ip[1]}" "doca-hbn"
 
-else
-  echo -e "DPU worker count is not 2:  ${dpu_worker_count}.  Skipping ping test between the two doca hbn pods"
+    # Test pings mtu 1490 from doca-hbn pod on worker node 2 to doca-hbn pod on worker node 1:
+    testcase_title="Test pings mtu 1490 from doca-hbn pod '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}' to '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}'"
+    ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[1]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 1490 "${doca_hbn_worker_pod_ip[0]}" "doca-hbn"
+
+    # Test pings mtu 8970 from doca-hbn pod on worker node 2 to doca-hbn pod on worker node 1:
+    testcase_title="Test pings mtu 8970 from doca-hbn pod '${doca_hbn_worker_pods[1]}' on DPU worker '${dpu_workers[1]}' to '${doca_hbn_worker_pods[0]}' on DPU worker '${dpu_workers[0]}'"
+    ping_mtu_test "$testcase_title" "${doca_hbn_worker_pods[1]}" "${dpf_operator_namespace}" "${hosted_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 8970 "${doca_hbn_worker_pod_ip[0]}" "doca-hbn"
+
+  else
+    echo -e "DPU worker count is not 2:  ${dpu_worker_count}.  Skipping ping test between the two doca hbn pods"
+
+  fi
+
+else 
+   echo -e "Flag 'SANITY_TESTS_PING_HBN_TO_HBN_PODS' is set to '${SANITY_TESTS_PING_HBN_TO_HBN_PODS}'.  Skipping ping tests between doca-hbn pods across DPU worker nodes" 
 
 fi
 
