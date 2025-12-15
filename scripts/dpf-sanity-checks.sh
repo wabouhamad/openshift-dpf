@@ -3,6 +3,12 @@
 # Catch failures in pipelines
  set -o pipefail
 
+# color coding for output
+RED="\e[31m"
+GREEN="\e[32m"
+NC="\e[0m"   # No Color
+
+
 # Defining some variables for this test suite
 dpf_operator_namespace="dpf-operator-system"
 
@@ -183,11 +189,11 @@ check_ping_packet_loss() {
 
   if [ "$PACKET_LOSS" -eq 0 ]; then
       echo "Packet loss percent is: ${PACKET_LOSS}"
-      echo "Pass"
+      echo -e "${GREEN}Pass${NC}"
       return 0
   else
       echo "Packet loss percent is: ${PACKET_LOSS}, not 0"
-      echo "Fail"
+      echo -e "${RED}Fail${NC}"
       # increment the failed testcase counter
       ((failed_testcase_count++))
       return 1
@@ -205,9 +211,9 @@ format_result() {
   fi
 
   if [ "$result" -eq 0 ]; then
-    echo "Pass"
+    echo -e "${GREEN}Pass${NC}"
   else
-    echo "Fail"
+    echo -e "${RED}Fail${NC}"
   fi
 }
 
@@ -361,7 +367,7 @@ doca_hbn_worker_pods=()
 
 for i in "${!dpu_workers[@]}"; do
   echo -e "\nFinding doca hbn pod name for DPU worker '${dpu_workers[$i]}'"
-  doca_hbn_worker_pods[$i]=$(oc get pods -n "${dpf_operator_namespace}" --kubeconfig="${hosted_kubecfg}" -o wide | grep "${dpu_workers[$i]}" | grep hbn | awk '{print $1}')
+  doca_hbn_worker_pods[$i]=$(oc get pods -n "${dpf_operator_namespace}" --kubeconfig="${hosted_kubecfg}" -o wide | grep "${dpu_workers[$i]}" | grep "\-hbn\-" | awk '{print $1}')
   ## echo -e "doca-hbn pod for worker '${dpu_workers[$i]}' found was: '${doca_hbn_worker_pods[$i]}'"
   # check that doca-hbn pod was found, otherwise exit
   if [ -z "${doca_hbn_worker_pods[$i]}" ]; then
@@ -429,7 +435,7 @@ for i in "${!dpu_workers[@]}"; do
   ping_mtu_test "${testcase_title}" "${sriov_test_pod_master}" "${SANITY_TESTS_WORKLOAD_NAMESPACE}" "${mgmt_kubecfg}" "${SANITY_TESTS_PING_COUNT}" 1490 "${doca_hbn_worker_pod_ip[$i]}"
 
   echo -e "\nFinding sriov test worker pod name for dpu_workers array index $i '${dpu_workers[$i]}' to ping doca-hbn pod name '${doca_hbn_worker_pods[$i]}'"
-  sriov_test_worker_pods[$i]=$(oc get pods -n "${SANITY_TESTS_WORKLOAD_NAMESPACE}" --kubeconfig="${mgmt_kubecfg}" -o wide | grep "${dpu_workers[$i]}" | awk '{print $1}' | grep -v hostnetwork)
+  sriov_test_worker_pods[$i]=$(oc get pods -n "${SANITY_TESTS_WORKLOAD_NAMESPACE}" --kubeconfig="${mgmt_kubecfg}" -o wide | grep "${dpu_workers[$i]}" | grep "Running" | awk '{print $1}' | grep -v hostnetwork)
   if [ -z "${sriov_test_worker_pods[$i]}" ]; then
     echo -e "❌ Failed to find sriov test worker pod for DPU worker '${dpu_workers[$i]}'. Exiting script..."
     exit 1
